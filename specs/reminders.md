@@ -181,7 +181,7 @@ Natural AI assistant behavior where "remind me..." works out of the box, with ea
 **Disable options:**
 
 - **Config**: Set `"enabled": false` in configuration
-- **Command line**: Use `--disable-reminders` flag for single sessions
+- **Environment**: Use `OPENCODE_DISABLE_REMINDERS=1` environment variable
 - **Protection**: Prevents accidental reminders for users preferring single-shot actions
 
 ---
@@ -266,7 +266,7 @@ The reminder system can be disabled via configuration:
 
 ### Disabled State Behavior
 
-When `config.reminders.enabled` is `false`:
+When `config.reminders.enabled` is `false` or `OPENCODE_DISABLE_REMINDERS` environment variable is set:
 
 #### Tool Visibility
 

@@ -17,6 +17,7 @@ import type { Agent } from "../agent/agent"
 import { Tool } from "./tool"
 import { Instance } from "../project/instance"
 import { Config } from "../config/config"
+import { Flag } from "../flag/flag"
 import path from "path"
 import { type ToolDefinition } from "@opencode-ai/plugin"
 import z from "zod/v4"
@@ -135,7 +136,7 @@ export namespace ToolRegistry {
 
     // Reminder configuration control
     const config = await Config.get()
-    if (config.reminders?.enabled === false) {
+    if (config.reminders?.enabled === false || Flag.OPENCODE_DISABLE_REMINDERS) {
       result["reminderadd"] = false
       result["reminderlist"] = false
       result["reminderremove"] = false

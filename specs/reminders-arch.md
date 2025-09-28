@@ -359,7 +359,7 @@ reminders: z.object({
 1. Default values (enabled: true, max: 50, min: 30)
 2. Global config (`~/.config/opencode/config.json`)
 3. Project config (`opencode.json` in project)
-4. Runtime flags (`--disable-reminders`)
+4. Environment variable (`OPENCODE_DISABLE_REMINDERS`)
 
 ### Tool Availability Control
 
@@ -379,7 +379,7 @@ export async function enabled(
 
   // Reminder configuration control
   const config = await Config.get()
-  if (config.reminders?.enabled === false) {
+  if (config.reminders?.enabled === false || Flag.OPENCODE_DISABLE_REMINDERS) {
     result["reminderadd"] = false
     result["reminderlist"] = false
     result["reminderremove"] = false
