@@ -281,8 +281,6 @@ User: "Remind me to check logs in 5 minutes"
 Agent: "I don't have the ability to set reminders in this configuration. You could set a manual timer or ask me to help with the logs directly."
 ```
 
-**vs. the previous approach where agent would see tools but get errors**
-
 #### Technical Implementation
 
 - Uses `ToolRegistry.enabled()` filtering mechanism
