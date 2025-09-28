@@ -35,7 +35,7 @@ export const ReminderAddTool = Tool.define("reminderadd", {
     }
 
     const reminder: Reminder.Info = {
-      id: Identifier.ascending("message"),
+      id: Identifier.ascending("reminder"),
       sessionID: ctx.sessionID,
       projectID: Instance.project.id,
       type: args.type,

@@ -309,28 +309,28 @@ export const ReminderRemoveTool = Tool.define("reminderremove", {
 Return reminder tool names from the `all()` function:
 
 ```typescript
-  async function all(): Promise<Tool.Info[]> {
-    const custom = await state().then((x) => x.custom)
-    return [
-      InvalidTool,
-      BashTool,
-      EditTool,
-      WebFetchTool,
-      GlobTool,
-      GrepTool,
-      ListTool,
-      PatchTool,
-      ReadTool,
-      WriteTool,
-      TodoWriteTool,
-      TodoReadTool,
-      TaskTool,
-      ReminderAddTool,
-      ReminderListTool,
-      ReminderRemoveTool,
-      ...custom,
-    ]
-  }
+async function all(): Promise<Tool.Info[]> {
+  const custom = await state().then((x) => x.custom)
+  return [
+    InvalidTool,
+    BashTool,
+    EditTool,
+    WebFetchTool,
+    GlobTool,
+    GrepTool,
+    ListTool,
+    PatchTool,
+    ReadTool,
+    WriteTool,
+    TodoWriteTool,
+    TodoReadTool,
+    TaskTool,
+    ReminderAddTool,
+    ReminderListTool,
+    ReminderRemoveTool,
+    ...custom,
+  ]
+}
 ```
 
 ---
@@ -347,7 +347,10 @@ Extend `Config.Info` schema:
 reminders: z.object({
   enabled: z.boolean().default(true).describe("Enable reminder functionality"),
   max_reminders_per_project: z.number().default(50).describe("Maximum active reminders per project"),
-  min_interval_seconds: z.number().default(30).describe("Minimum interval between reminder executions"),
+  min_interval_seconds: z
+    .number()
+    .default(30)
+    .describe("Minimum allowed interval between the same reminder executions"),
 }).optional()
 ```
 
@@ -377,9 +380,9 @@ export async function enabled(
   // Reminder configuration control
   const config = await Config.get()
   if (config.reminders?.enabled === false) {
-  result["reminderadd"] = false
-  result["reminderlist"] = false
-  result["reminderremove"] = false
+    result["reminderadd"] = false
+    result["reminderlist"] = false
+    result["reminderremove"] = false
   }
 
   return result

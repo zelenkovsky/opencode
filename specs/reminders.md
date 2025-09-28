@@ -242,7 +242,7 @@ Errors during reminder execution are logged and posted as error messages to the 
   - Application restart → All reminders restored from storage (unless disabled)
 - **Reminder limit**: Maximum `max_reminders_per_project` active reminders per session (configurable, default 50)
   - When limit reached, tool returns error with current reminder list for user to choose what to stop
-- **Minimum intervals**: `min_interval_seconds` minimum (configurable, default 30 seconds, not enforced as overload protection)
+- **Minimum intervals**: `min_interval_seconds` minimum allowed interval between the same reminder executions (configurable, default 30 seconds, enforced at reminder creation)
 - **Message queuing**: Multiple timer messages queue naturally in session message flow
 - **User control**: Standard session interrupt/cancel works on timer-triggered messages
 
