@@ -308,6 +308,9 @@ describe("Reminder Tools", () => {
           expect(result.output).toBe("Reminder cancelled: Email checker")
           expect(result.metadata.reminderID).toBeDefined()
 
+          // Wait a moment for state updates to complete
+          await new Promise((resolve) => setTimeout(resolve, 10))
+
           // Verify it's gone
           const remaining = await ReminderManager.list(mockContext.sessionID)
           expect(remaining).toHaveLength(0)

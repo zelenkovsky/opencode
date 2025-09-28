@@ -3,6 +3,7 @@ import { ReminderManager } from "../../src/reminder/manager"
 import { Reminder } from "../../src/reminder/reminder"
 import { Instance } from "../../src/project/instance"
 import { Storage } from "../../src/storage/storage"
+import { Session } from "../../src/session"
 import { Bus } from "../../src/bus"
 import { $ } from "bun"
 
@@ -88,10 +89,17 @@ describe("Reminder Execution Tests", () => {
     await Instance.provide({
       directory: tmp.dir,
       fn: async () => {
-        // First, manually store a reminder in storage
+        // First, create a session
+        const session = await Session.createNext({
+          id: "ses_restore_test",
+          directory: tmp.dir,
+          title: "Test Session",
+        })
+
+        // Then manually store a reminder in storage
         const reminder: Reminder.Info = {
           id: "msg_restore_test",
-          sessionID: "ses_restore_test",
+          sessionID: session.id,
           projectID: Instance.project.id,
           type: "one-time",
           interval: 5000, // Long interval so it doesn't execute
@@ -110,16 +118,17 @@ describe("Reminder Execution Tests", () => {
         // Now init ReminderManager and see if it restores
         ReminderManager.init()
 
-        // Wait for async restoration
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        // Wait for async initialization to complete
+        await new Promise((resolve) => setTimeout(resolve, 200))
 
         // Check if reminder was restored
-        const restoredReminders = await ReminderManager.list("ses_restore_test")
+        const restoredReminders = await ReminderManager.list(session.id)
         expect(restoredReminders).toHaveLength(1)
         expect(restoredReminders[0].userDescription).toBe("Restore test")
 
         // Clean up
         await ReminderManager.cancel(reminder.id)
+        await Session.remove(session.id)
       },
     })
   })
