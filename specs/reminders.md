@@ -165,29 +165,13 @@ Agents decide when to use reminders based on user language patterns:
 
 ### Default configuration analysis
 
-**Current approach: Disabled by default**
-
-**Pros of disabled by default:**
-
-- **Resource safety**: Prevents accidental timer proliferation
-- **User control**: Explicit opt-in ensures users understand the feature
-- **Server-friendly**: Default installations don't consume background resources
-- **Enterprise safety**: Organizations can evaluate before allowing
-
-**Cons of disabled by default:**
-
-- **Discovery friction**: Users might never find this powerful feature
-- **Extra setup step**: Requires configuration before use
-- **Reduces adoption**: Features enabled by default get more usage
-- **Demo limitations**: Showcasing opencode requires extra setup
-
-**Recommendation: Enable by default**
+**Reminders are enable by default**
 Natural AI assistant behavior where "remind me..." works out of the box, with easy disable options.
 
 ```typescript
 {
   "reminders": {
-    "enabled": true,  // Default: enabled for natural user experience
+    "enabled": true,  // Enabled by default for natural user experience
     "max_reminders_per_project": 50,
     "min_interval_seconds": 30
   }

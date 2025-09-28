@@ -306,15 +306,31 @@ export const ReminderRemoveTool = Tool.define("reminderremove", {
 
 **File**: `src/tool/registry.ts`
 
-Add to `BUILTIN` array:
+Return reminder tool names from the `all()` function:
 
 ```typescript
-const BUILTIN = [
-  // ... existing tools
-  ReminderAddTool,
-  ReminderListTool,
-  ReminderRemoveTool,
-]
+  async function all(): Promise<Tool.Info[]> {
+    const custom = await state().then((x) => x.custom)
+    return [
+      InvalidTool,
+      BashTool,
+      EditTool,
+      WebFetchTool,
+      GlobTool,
+      GrepTool,
+      ListTool,
+      PatchTool,
+      ReadTool,
+      WriteTool,
+      TodoWriteTool,
+      TodoReadTool,
+      TaskTool,
+      ReminderAddTool,
+      ReminderListTool,
+      ReminderRemoveTool,
+      ...custom,
+    ]
+  }
 ```
 
 ---
