@@ -158,10 +158,10 @@ When a timer fires:
 
 Agents decide when to use reminders based on user language patterns:
 
-- "wait 5 minutes then..." → `add_reminder` with one-time timer
-- "check every hour..." → `add_reminder` with recurring timer
-- "what am I waiting for?" → `list_reminders`
-- "stop checking my email" → `remove_reminder`
+- "wait 5 minutes then..." → `reminderadd` with one-time timer
+- "check every hour..." → `reminderadd` with recurring timer
+- "what am I waiting for?" → `reminderlist`
+- "stop checking my email" → `reminderremove`
 
 ### Default configuration analysis
 

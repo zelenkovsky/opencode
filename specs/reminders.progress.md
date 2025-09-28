@@ -25,9 +25,9 @@ The reminder feature has been **substantially implemented** with core functional
 
 ### **2. Tool Implementation (100% Complete)**
 
-- **`add_reminder`**: Fully implemented with parameter validation
-- **`list_reminders`**: Complete with session-scoped listing
-- **`remove_reminder`**: Pattern matching and cancellation logic
+- **`reminderadd`**: Fully implemented with parameter validation
+- **`reminderlist`**: Complete with session-scoped listing
+- **`reminderremove`**: Pattern matching and cancellation logic
 - **Tool Registration**: Properly registered in `ToolRegistry.BUILTIN`
 
 ### **3. Configuration System (100% Complete)**
