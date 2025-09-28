@@ -53,7 +53,7 @@ The reminder feature has been **substantially implemented** with core functional
 - **Comprehensive Logging**: Detailed metrics tracking restoration success/failure
 - **Test Coverage**: Full test suite validating persistence across restarts
 
-### **6. Tool Availability Control (100% Complete)**
+### **6. Tool Availability Control (100% Complete) — 🆕 RECENTLY IMPLEMENTED**
 
 - **Registration Filtering**: Tools filtered out via `ToolRegistry.enabled()` when disabled
 - **Config Integration**: Respects `config.reminders.enabled` setting
@@ -62,6 +62,7 @@ The reminder feature has been **substantially implemented** with core functional
 - **Graceful Recovery**: Re-enabling restores all saved reminders
 - **Architecture Consistency**: Uses identical pattern to permission-based tool filtering
 - **Test Coverage**: Dedicated tests verify tool filtering for both enabled and disabled config states
+- **Milestone**: ToolRegistry.enabled now robustly respects config.reminders.enabled, with comprehensive test coverage and production-grade filtering. (See commit bcd71599)
 
 ---
 
