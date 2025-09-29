@@ -1,6 +1,6 @@
 # Reminder Feature Implementation Progress Report
 
-_Generated: September 26, 2025_  
+_Generated: September 26, 2025_
 _Updated: September 26, 2025 - Tool Availability Control and Timer Persistence are now complete. Recent changes: Implemented actual config-based tool filtering (bcd71599), fixed circular dependency issues in reminder tool tests (8f50f0fb), added comprehensive tool availability test suite; ToolRegistry.enabled now properly respects config.reminders.enabled; see git history for details._
 
 ## Executive Summary
@@ -28,7 +28,7 @@ The reminder feature has been **substantially implemented** with core functional
 - **`reminderadd`**: Fully implemented with parameter validation
 - **`reminderlist`**: Complete with session-scoped listing
 - **`reminderremove`**: Pattern matching and cancellation logic
-- **Tool Registration**: Properly registered in `ToolRegistry.BUILTIN`
+- **Tool Registration**: Properly registered in `ToolRegistry`
 
 ### **3. Configuration System (100% Complete)**
 
@@ -63,6 +63,7 @@ The reminder feature has been **substantially implemented** with core functional
 - **Architecture Consistency**: Uses identical pattern to permission-based tool filtering
 - **Test Coverage**: Dedicated tests verify tool filtering for both enabled and disabled config states
 - **Milestone**: ToolRegistry.enabled now robustly respects config.reminders.enabled, with comprehensive test coverage and production-grade filtering. (See commit bcd71599)
+- **Environment Variable***: `OPENCODE_DISABLE_REMINDERS` environment variable controls if reminder tools are available or not
 
 ---
 
@@ -99,19 +100,6 @@ The reminder feature has been **substantially implemented** with core functional
 - No notification system integration
 - No session visual indicators
 
-### **2. Runtime Control Flags (100% Complete)**
-
-**Specification Requirements:**
-
-- `OPENCODE_DISABLE_REMINDERS` environment variable (supported)
-- No CLI flag; disabling is only via environment variable or config
-
-**Current Status:** ✅ **Fully implemented**
-
-- `OPENCODE_DISABLE_REMINDERS` is supported and robustly disables reminders at runtime
-- Tool availability respects both config and environment variable
-- All documentation/specs are now consistent and correct
-
 ---
 
 ## **🧪 Testing Status: PARTIALLY COMPLETE**
@@ -124,28 +112,19 @@ The reminder feature has been **substantially implemented** with core functional
 - Error handling scenarios (8/8 tests ✅)
 - Tool integration (partially working)
 
-### **❌ Broken Tests**
-
-- Tool integration tests (circular dependency issues)
-- Full end-to-end workflows
-- Timer execution behavior
-- Permission handling edge cases
-
-**Root Cause:** Circular dependency between `ReminderManager` → `SessionPrompt` → `ToolRegistry` → `ReminderTools`
-
 ---
 
 ## **🏗️ Architecture Compliance: EXCELLENT**
 
 The implementation **perfectly follows opencode patterns**:
 
-✅ **Instance.state()** for project-scoped state management  
-✅ **Bus.subscribe()** for event handling  
-✅ **Storage.read/write()** for persistence  
-✅ **Log.create()** for consistent logging  
-✅ **Tool.define()** for tool creation  
-✅ **Zod schemas** for validation  
-✅ **Async/await** patterns throughout  
+✅ **Instance.state()** for project-scoped state management
+✅ **Bus.subscribe()** for event handling
+✅ **Storage.read/write()** for persistence
+✅ **Log.create()** for consistent logging
+✅ **Tool.define()** for tool creation
+✅ **Zod schemas** for validation
+✅ **Async/await** patterns throughout
 ✅ **Namespace organization** (`export namespace`)
 
 **This is exemplary opencode architecture!**
@@ -196,12 +175,6 @@ The implementation **perfectly follows opencode patterns**:
 ---
 
 ## **🎯 Recommendations**
-
-### **Immediate (Production Readiness)**
-
-1. **Fix circular dependencies** in tests
-2. **Add runtime disable flag** (`OPENCODE_DISABLE_REMINDERS` environment variable)
-3. ~~**Implement tool availability checks** (respect `config.reminders.enabled`)~~ ✅ **COMPLETED**
 
 ### **Short Term (User Experience)**
 
