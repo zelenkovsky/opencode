@@ -145,7 +145,7 @@ When a reminder timer fires:
 async function executeReminder(reminderID: string) {
   const reminder = await Storage.read<Reminder.Info>(["reminder", projectID, reminderID])
 
-  // 1. Post agent message (core functionality)
+  // Always attempt to send the reminder - SessionPrompt.prompt() will handle queuing if busy
   await SessionPrompt.prompt({
     sessionID: reminder.sessionID,
     messageID: Identifier.ascending("message"),
@@ -170,7 +170,7 @@ async function executeReminder(reminderID: string) {
     await cancel(reminder.id)
   }
 
-  // 2. Publish lightweight notification event (UI-only)
+  // Publish lightweight notification event (UI-only)
   Bus.publish(Reminder.Event.Executed, {
     sessionID: reminder.sessionID,
     sessionName: await getSessionName(reminder.sessionID),
@@ -463,17 +463,13 @@ export function init() {
 
 ### Permission inheritance
 
-**Simplified permission handling** - reminders execute with the agent permissions from their originating session:
+**Standard permission handling** - reminders execute with the agent permissions from their originating session:
 
 - Tool access rights preserved from originating session
-- **Current session check**: Permission requests only shown if session is currently active (not busy/pending)
-- **Non-current session behavior**: If session is not current and permission is needed:
-  - Permission requests are treated as "deny" (not shown to user)
-  - Agent posts an error message to the session explaining what went wrong
-  - One-time reminders: cancelled and removed
-  - Recurring reminders: current execution cancelled but reminder continues to reschedule for future attempts
-- **Session activity check**: Uses `SessionPrompt.isBusy(sessionID)` to determine if session is current
-- **User feedback**: When user later opens the session, they see the agent's explanation of why the reminder failed
+- **Queue-based execution**: Reminders use `SessionPrompt.prompt()` which automatically queues messages for busy sessions
+- **Normal permission flow**: Permission requests are shown to users when the queued reminder message is processed
+- **No special session checks**: Reminders are delivered to their target session regardless of UI session state
+- **Standard error handling**: Permission failures are handled through normal session error handling
 
 ### Error handling
 
@@ -481,7 +477,7 @@ export function init() {
 
 - Log errors via existing `Log.create()` system
 - Post error message to originating session explaining what failed
-- **Permission failures in non-current sessions**: Agent posts explanatory message like "I couldn't check the logs because this session wasn't active when the reminder triggered and I need bash permission. The reminder will try again later."
+- **Permission failures**: Agent posts explanatory message like "I couldn't check the logs because I need bash permission. The reminder will try again later."
 - Cancel reminder if execution repeatedly fails
 
 **Resource cleanup**:

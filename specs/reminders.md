@@ -149,10 +149,11 @@ Use Node.js `setTimeout` and `setInterval` for timing. Store active timers in pr
 When a timer fires:
 
 1. **Message posting**: System posts the stored `originalPrompt` as if the **agent** (who set the timer) sent it
-2. **Queue handling**: If previous timer message is still being processed, new messages queue up normally
-3. **Session state**: Messages accumulate in inactive sessions - user sees them when opening the session
+2. **Automatic queuing**: Uses `SessionPrompt.prompt()` which automatically handles queuing if the session is busy
+3. **Session state**: Messages are queued for busy sessions and processed when the session becomes available
 4. **Normal processing**: Agent processes queued messages in order with full context and tool access
 5. **Cancellation**: User can cancel/interrupt queued messages using standard session controls
+6. **Cross-session delivery**: Reminders are delivered regardless of which session is currently active in the UI
 
 ### Agent decision making
 
@@ -204,14 +205,11 @@ Reminder messages appear as **agent messages** in the originating session (poste
 
 When reminders need user permissions (e.g., bash tool access):
 
-- **Current session only**: Permission requests are only shown if the session is currently active
-- **Non-current sessions**: If a reminder requires permission while session is inactive:
-  - Permission requests are treated as "deny" (not shown to user)
-  - Agent posts an explanatory message to the session about what went wrong
-  - The reminder is automatically cancelled and removed (one-time) or skips execution (recurring)
-- **Simple handling**: No session blocking, queuing, or complex state management
-- **Recurring reminders**: Will continue to be rescheduled if recurring, even if individual executions are cancelled due to permissions
-- **User feedback**: When opening the session later, user sees agent's explanation of permission failures
+- **Queued execution**: Reminder messages are queued using the existing session message queuing system
+- **Busy sessions**: If a session is busy processing other messages, reminders wait in the queue and execute when available
+- **Permission handling**: Permission requests follow normal session flow - shown to user when the session processes the queued reminder message
+- **No special handling**: Reminders use standard `SessionPrompt.prompt()` which handles all queuing, busy states, and permission flows automatically
+- **User feedback**: Users see reminder execution and any permission requests in normal conversation flow
 
 ### Background notifications
 
@@ -230,10 +228,10 @@ When reminders trigger in inactive sessions:
 
 Errors during reminder execution are logged and posted as error messages to the originating session.
 
-**Permission failures**: When reminders fail due to permissions in non-current sessions, agents post clear explanatory messages such as:
+**Permission failures**: When reminders fail due to permissions, agents post clear explanatory messages such as:
 
-- "I couldn't check the logs because this session wasn't active when the reminder triggered and I need bash permission. The reminder will try again later." (recurring)
-- "I couldn't run the deployment script because this session wasn't active and I need bash permission. The one-time reminder has been cancelled." (one-time)
+- "I couldn't check the logs because I need bash permission. The reminder will try again later." (recurring)
+- "I couldn't run the deployment script because I need bash permission. The one-time reminder has been cancelled." (one-time)
 
 ### Resource management
 
