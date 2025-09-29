@@ -40,7 +40,14 @@ export namespace Reminder {
 
   export const Event = {
     Created: Bus.event("reminder.created", z.object({ info: Info })),
-    Executed: Bus.event("reminder.executed", z.object({ info: Info })),
+    Executed: Bus.event(
+      "reminder.executed",
+      z.object({
+        sessionID: z.string(),
+        sessionName: z.string(),
+        reminderDescription: z.string(),
+      }),
+    ),
     Cancelled: Bus.event("reminder.cancelled", z.object({ info: Info })),
   }
 }
@@ -138,7 +145,7 @@ When a reminder timer fires:
 async function executeReminder(reminderID: string) {
   const reminder = await Storage.read<Reminder.Info>(["reminder", projectID, reminderID])
 
-  // Post reminder message as agent message to originating session
+  // 1. Post agent message (core functionality)
   await SessionPrompt.prompt({
     sessionID: reminder.sessionID,
     messageID: Identifier.ascending("message"),
@@ -163,9 +170,19 @@ async function executeReminder(reminderID: string) {
     await cancel(reminder.id)
   }
 
-  Bus.publish(Reminder.Event.Executed, { info: reminder })
+  // 2. Publish lightweight notification event (UI-only)
+  Bus.publish(Reminder.Event.Executed, {
+    sessionID: reminder.sessionID,
+    sessionName: await getSessionName(reminder.sessionID),
+    reminderDescription: reminder.userDescription,
+  })
 }
 ```
+
+**Dual-purpose design**:
+
+- **Agent message**: Handles core reminder functionality, conversation history, agent processing
+- **Notification event**: Lightweight UI signal for cross-session awareness
 
 **Message attribution**: Reminder-triggered messages appear as agent messages in the session (not system messages), preserving conversation context.
 
@@ -542,6 +559,330 @@ export function init() {
 3. **Graceful Restoration**: Re-enabling immediately restores all saved reminders
 4. **Session Isolation**: Session cleanup continues regardless of enabled state
 
+---
+
+## UI Notification System
+
+### Overview
+
+Reminder notifications leverage opencode's existing toast notification architecture, following the same event-driven pattern used for application updates in the TUI. The system provides consistent visual feedback across both terminal and web interfaces while maintaining clean separation of concerns between backend business logic and UI presentation decisions.
+
+### Existing Toast Infrastructure
+
+**TUI Toast System** (`packages/tui/internal/components/toast/toast.go`):
+
+```go
+type ShowToastMsg struct {
+    Message  string
+    Title    *string
+    Color    compat.AdaptiveColor
+    Duration time.Duration
+}
+
+// Usage in TUI for app updates
+case opencode.EventListResponseEventInstallationUpdated:
+    return a, toast.NewSuccessToast(
+        "opencode updated to "+msg.Properties.Version+", restart to apply.",
+        toast.WithTitle("New version installed"),
+    )
+
+// Usage for reminder notifications
+case opencode.EventListResponseEventReminderExecuted:
+    // TUI decides when to show notifications
+    if msg.Properties.SessionID != a.app.CurrentSessionID {
+        return a, toast.NewInfoToast(
+            "Reminder triggered in "+msg.Properties.SessionName,
+            toast.WithTitle("Reminder"),
+        )
+    }
+    // Don't show notification for current session
+    return a, nil
+```
+
+**Features**:
+
+- Multiple toast types (Success, Info, Warning, Error)
+- Auto-dismiss with configurable duration (default 5 seconds)
+- Top-right positioning with proper stacking
+- Themed styling with colored borders
+- Overlay rendering system
+
+### Event Propagation Architecture
+
+**1. Backend Event Generation**
+
+When a reminder executes, the manager publishes a lightweight notification event:
+
+```typescript
+// In ReminderManager.execute()
+async function executeReminder(reminderID: string) {
+  const reminder = await Storage.read<Reminder.Info>(["reminder", projectID, reminderID])
+
+  // 1. Post agent message (core functionality)
+  await SessionPrompt.prompt({
+    sessionID: reminder.sessionID,
+    messageID: Identifier.ascending("message"),
+    parts: [{ id: Identifier.ascending("part"), type: "text", text: reminder.originalPrompt }],
+  })
+
+  // Handle recurring/cleanup logic...
+
+  // 2. Publish notification event (UI-only, just the facts)
+  Bus.publish(Reminder.Event.Executed, {
+    sessionID: reminder.sessionID,
+    sessionName: await getSessionName(reminder.sessionID),
+    reminderDescription: reminder.userDescription,
+  })
+}
+```
+
+**2. Simplified Event Schema**
+
+```typescript
+export const Event = {
+  Created: Bus.event("reminder.created", z.object({ info: Info })),
+  Executed: Bus.event(
+    "reminder.executed",
+    z.object({
+      sessionID: z.string(),
+      sessionName: z.string(),
+      reminderDescription: z.string(),
+    }),
+  ),
+  Cancelled: Bus.event("reminder.cancelled", z.object({ info: Info })),
+}
+```
+
+**3. Event Transport**
+
+Events flow through opencode's existing event system:
+
+- **Backend**: `Bus.publish()` → Event system → SDK event stream
+- **Frontend**: SDK event subscription → Event context → UI components
+
+### Web App Implementation
+
+**Location**: `packages/app/src/components/reminder-toast.tsx`
+
+```typescript
+interface ReminderToast {
+  id: string
+  title: string
+  message: string
+  sessionName: string
+  sessionID: string
+  type: 'info' | 'success' | 'warning' | 'error'
+  duration: number
+  createdAt: number
+}
+
+export function ReminderToastContainer() {
+  const event = useEvent()
+  const local = useLocal()
+  const [toasts, setToasts] = createStore<{ items: ReminderToast[] }>({ items: [] })
+
+  // Event listener - UI decides when to show notifications
+  createEffect(() => {
+    const unsubscribe = event.listen((e) => {
+      if (e.type === "reminder.executed") {
+        // UI decides when to show notifications
+        const isCurrentSession = local.session.active()?.id === e.data.sessionID
+
+        // Only show notification if session is NOT currently active
+        if (!isCurrentSession) {
+          const toast: ReminderToast = {
+            id: `toast-${Date.now()}`,
+            title: "Reminder triggered",
+            message: `in ${e.data.sessionName}`,
+            sessionName: e.data.sessionName,
+            sessionID: e.data.sessionID,
+            type: 'info',
+            duration: 5000,
+            createdAt: Date.now()
+          }
+
+          setToasts("items", prev => [...prev, toast])
+
+          // Auto-dismiss (matching TUI behavior)
+          setTimeout(() => {
+            setToasts("items", prev => prev.filter(t => t.id !== toast.id))
+          }, toast.duration)
+        }
+      }
+    })
+
+    onCleanup(unsubscribe)
+  })
+
+  return (
+    <div class="fixed top-4 right-4 z-50 flex flex-col gap-2">
+      <For each={toasts.items}>
+        {(toast) => <ReminderToastItem toast={toast} onDismiss={(id) =>
+          setToasts("items", prev => prev.filter(t => t.id !== id))
+        } />}
+      </For>
+    </div>
+  )
+}
+```
+
+**Toast Component**:
+
+```typescript
+interface ReminderToastItemProps {
+  toast: ReminderToast
+  onDismiss: (id: string) => void
+}
+
+export function ReminderToastItem(props: ReminderToastItemProps) {
+  const [visible, setVisible] = createSignal(false)
+  const [dismissed, setDismissed] = createSignal(false)
+  const local = useLocal()
+
+  onMount(() => {
+    // Slide-in animation
+    setTimeout(() => setVisible(true), 50)
+  })
+
+  const handleDismiss = () => {
+    setDismissed(true)
+    setTimeout(() => props.onDismiss(props.toast.id), 300)
+  }
+
+  const handleClick = () => {
+    // Optional: Click toast to switch to that session
+    local.session.setActive(props.toast.sessionID)
+    local.layout.openRightPane()
+    handleDismiss()
+  }
+
+  return (
+    <div
+      class="transition-all duration-300 min-w-64 max-w-80 cursor-pointer"
+      classList={{
+        "opacity-100 translate-x-0": visible() && !dismissed(),
+        "opacity-0 translate-x-full": !visible() || dismissed()
+      }}
+      onClick={handleClick}
+    >
+      <div class="bg-background-panel border border-primary rounded-lg p-3 shadow-lg">
+        <div class="flex items-center gap-3">
+          <Icon name="clock" size={16} class="text-primary flex-shrink-0" />
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-text">{props.toast.title}</div>
+            <div class="text-xs text-text-muted truncate">{props.toast.message}</div>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleDismiss()
+            }}
+            class="text-text-muted hover:text-text transition-colors"
+          >
+            <Icon name="close" size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+```
+
+### Session Name Resolution
+
+**Backend Enhancement**:
+
+```typescript
+// Add session name resolution utility
+async function getSessionName(sessionID: string): Promise<string> {
+  try {
+    const session = await Session.get(sessionID)
+    return session.title || `Session ${sessionID.slice(-8)}`
+  } catch {
+    return `Session ${sessionID.slice(-8)}`
+  }
+}
+```
+
+### UI Decision Architecture
+
+**Clean Separation of Concerns:**
+
+1. **Backend Responsibility**:
+   - Execute reminder functionality (agent messages)
+   - Publish factual events with session information
+   - No UI presentation logic
+
+2. **UI Responsibility**:
+   - Decide when to show notifications based on current session state
+   - Handle toast lifecycle and animations
+   - Provide user interaction (click to switch sessions)
+
+**Benefits**:
+
+- **Flexibility**: Each UI can implement different notification rules
+- **Testability**: UI logic can be tested independently
+- **Maintainability**: Clean separation makes changes easier
+- **Extensibility**: Easy to add features like session-specific notification preferences
+
+### Timeout and Lifecycle Management
+
+**Auto-Dismiss Behavior**:
+
+- **Duration**: 5 seconds (matching TUI toast duration)
+- **Stacking**: Multiple toasts stack vertically with 8px gap
+- **Animation**: 300ms slide-in/out transitions
+- **Cleanup**: Automatic removal after duration + animation time
+
+**Memory Management**:
+
+- Event listeners cleaned up on component unmount
+- Toast references removed from store after dismissal
+- No persistent storage (toasts are ephemeral)
+
+**User Interaction**:
+
+- Manual dismiss via close button
+- Click toast to navigate to session (optional enhancement)
+- Hover pause (optional enhancement)
+
+### Visual Design Consistency
+
+**Styling matches existing opencode patterns**:
+
+- Uses theme system colors (`--color-primary`, `--color-background-panel`)
+- Consistent border radius and shadow depth
+- Same icon set as existing UI components
+- Responsive sizing (min 256px, max 320px width)
+
+**Positioning Strategy**:
+
+- Fixed top-right positioning (16px from edges)
+- z-index coordination with existing modals/dialogs
+- Mobile responsive (stack vertically, reduce margins)
+
+### Error Handling and Edge Cases
+
+**Network Issues**:
+
+- Event delivery failures handled by existing SDK retry logic
+- Missing session names fall back to truncated session ID
+- Graceful degradation if toast system fails
+
+**Performance Considerations**:
+
+- Maximum 5 concurrent toasts (oldest auto-dismissed)
+- Debounced rapid-fire notifications (500ms minimum interval)
+- Efficient DOM updates using SolidJS fine-grained reactivity
+
+**Accessibility**:
+
+- ARIA labels for screen readers
+- Keyboard dismissal support
+- High contrast mode compatibility
+
+---
+
 ## Implementation decisions
 
 1. **Timer persistence across restarts**: ✅ **IMPLEMENTED** - Reminders persist in storage and are restored on startup with 1-hour grace period
@@ -550,3 +891,5 @@ export function init() {
 4. **Error handling**: Cancels reminders on repeated failures, logs via standard Log system
 5. **Concurrent execution**: Uses existing session message queuing - no special handling needed
 6. **Tool availability control**: ✅ **IMPLEMENTED** - Uses registration filtering pattern following opencode standards
+7. **UI notifications**: ✅ **SPECIFIED** - Hybrid approach with agent messages for core functionality and lightweight events for UI notifications
+8. **Notification architecture**: ✅ **SPECIFIED** - UI-driven decision making with backend providing factual data only
