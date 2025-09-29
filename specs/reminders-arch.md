@@ -40,14 +40,7 @@ export namespace Reminder {
 
   export const Event = {
     Created: Bus.event("reminder.created", z.object({ info: Info })),
-    Executed: Bus.event(
-      "reminder.executed",
-      z.object({
-        sessionID: z.string(),
-        sessionName: z.string(),
-        reminderDescription: z.string(),
-      }),
-    ),
+    Executed: Bus.event("reminder.executed", z.object({ info: Info })),
     Cancelled: Bus.event("reminder.cancelled", z.object({ info: Info })),
   }
 }
@@ -170,11 +163,9 @@ async function executeReminder(reminderID: string) {
     await cancel(reminder.id)
   }
 
-  // Publish lightweight notification event (UI-only)
+  // Publish notification event (UI-only)
   Bus.publish(Reminder.Event.Executed, {
-    sessionID: reminder.sessionID,
-    sessionName: await getSessionName(reminder.sessionID),
-    reminderDescription: reminder.userDescription,
+    info: reminder,
   })
 }
 ```
@@ -584,15 +575,10 @@ case opencode.EventListResponseEventInstallationUpdated:
 
 // Usage for reminder notifications
 case opencode.EventListResponseEventReminderExecuted:
-    // TUI decides when to show notifications
-    if msg.Properties.SessionID != a.app.CurrentSessionID {
-        return a, toast.NewInfoToast(
-            "Reminder triggered in "+msg.Properties.SessionName,
-            toast.WithTitle("Reminder"),
-        )
-    }
-    // Don't show notification for current session
-    return a, nil
+    return a, toast.NewInfoToast(
+        msg.Properties.Info.UserDescription,
+        toast.WithTitle("Reminder"),
+    )
 ```
 
 **Features**:
@@ -623,28 +609,19 @@ async function executeReminder(reminderID: string) {
 
   // Handle recurring/cleanup logic...
 
-  // 2. Publish notification event (UI-only, just the facts)
+  // 2. Publish notification event (UI-only)
   Bus.publish(Reminder.Event.Executed, {
-    sessionID: reminder.sessionID,
-    sessionName: await getSessionName(reminder.sessionID),
-    reminderDescription: reminder.userDescription,
+    info: reminder,
   })
 }
 ```
 
-**2. Simplified Event Schema**
+**2. Event Schema**
 
 ```typescript
 export const Event = {
   Created: Bus.event("reminder.created", z.object({ info: Info })),
-  Executed: Bus.event(
-    "reminder.executed",
-    z.object({
-      sessionID: z.string(),
-      sessionName: z.string(),
-      reminderDescription: z.string(),
-    }),
-  ),
+  Executed: Bus.event("reminder.executed", z.object({ info: Info })),
   Cancelled: Bus.event("reminder.cancelled", z.object({ info: Info })),
 }
 ```
@@ -665,8 +642,6 @@ interface ReminderToast {
   id: string
   title: string
   message: string
-  sessionName: string
-  sessionID: string
   type: 'info' | 'success' | 'warning' | 'error'
   duration: number
   createdAt: number
@@ -677,33 +652,25 @@ export function ReminderToastContainer() {
   const local = useLocal()
   const [toasts, setToasts] = createStore<{ items: ReminderToast[] }>({ items: [] })
 
-  // Event listener - UI decides when to show notifications
+  // Event listener - show notifications for all reminders
   createEffect(() => {
     const unsubscribe = event.listen((e) => {
       if (e.type === "reminder.executed") {
-        // UI decides when to show notifications
-        const isCurrentSession = local.session.active()?.id === e.data.sessionID
-
-        // Only show notification if session is NOT currently active
-        if (!isCurrentSession) {
-          const toast: ReminderToast = {
-            id: `toast-${Date.now()}`,
-            title: "Reminder triggered",
-            message: `in ${e.data.sessionName}`,
-            sessionName: e.data.sessionName,
-            sessionID: e.data.sessionID,
-            type: 'info',
-            duration: 5000,
-            createdAt: Date.now()
-          }
-
-          setToasts("items", prev => [...prev, toast])
-
-          // Auto-dismiss (matching TUI behavior)
-          setTimeout(() => {
-            setToasts("items", prev => prev.filter(t => t.id !== toast.id))
-          }, toast.duration)
+        const toast: ReminderToast = {
+          id: `toast-${Date.now()}`,
+          title: "Reminder",
+          message: e.data.info.userDescription,
+          type: 'info',
+          duration: 5000,
+          createdAt: Date.now()
         }
+
+        setToasts("items", prev => [...prev, toast])
+
+        // Auto-dismiss (matching TUI behavior)
+        setTimeout(() => {
+          setToasts("items", prev => prev.filter(t => t.id !== toast.id))
+        }, toast.duration)
       }
     })
 
@@ -746,9 +713,6 @@ export function ReminderToastItem(props: ReminderToastItemProps) {
   }
 
   const handleClick = () => {
-    // Optional: Click toast to switch to that session
-    local.session.setActive(props.toast.sessionID)
-    local.layout.openRightPane()
     handleDismiss()
   }
 
@@ -784,20 +748,20 @@ export function ReminderToastItem(props: ReminderToastItemProps) {
 }
 ```
 
-### Session Name Resolution
+### Event Data Access
 
-**Backend Enhancement**:
+**Backend provides full reminder info**:
 
 ```typescript
-// Add session name resolution utility
-async function getSessionName(sessionID: string): Promise<string> {
-  try {
-    const session = await Session.get(sessionID)
-    return session.title || `Session ${sessionID.slice(-8)}`
-  } catch {
-    return `Session ${sessionID.slice(-8)}`
-  }
-}
+// Event contains complete reminder information
+Bus.publish(Reminder.Event.Executed, {
+  info: reminder, // Full Reminder.Info object
+})
+
+// UI can access all fields from the reminder
+const userDescription = event.data.info.userDescription
+const sessionID = event.data.info.sessionID
+const reminderType = event.data.info.type
 ```
 
 ### UI Decision Architecture
@@ -806,20 +770,20 @@ async function getSessionName(sessionID: string): Promise<string> {
 
 1. **Backend Responsibility**:
    - Execute reminder functionality (agent messages)
-   - Publish factual events with session information
-   - No UI presentation logic
+   - Publish events with complete reminder information
+   - No UI presentation logic or filtering
 
 2. **UI Responsibility**:
-   - Decide when to show notifications based on current session state
+   - Show notifications for all executed reminders
    - Handle toast lifecycle and animations
-   - Provide user interaction (click to switch sessions)
+   - Extract display information from reminder data
 
 **Benefits**:
 
-- **Flexibility**: Each UI can implement different notification rules
+- **Simplicity**: All reminders show notifications consistently
 - **Testability**: UI logic can be tested independently
 - **Maintainability**: Clean separation makes changes easier
-- **Extensibility**: Easy to add features like session-specific notification preferences
+- **Consistency**: Uniform notification behavior across all reminders
 
 ### Timeout and Lifecycle Management
 
@@ -862,7 +826,7 @@ async function getSessionName(sessionID: string): Promise<string> {
 **Network Issues**:
 
 - Event delivery failures handled by existing SDK retry logic
-- Missing session names fall back to truncated session ID
+- Missing reminder data handled gracefully with fallback display
 - Graceful degradation if toast system fails
 
 **Performance Considerations**:
