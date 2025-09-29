@@ -6,6 +6,7 @@ import { Log } from "../util/log"
 import { Bus } from "../bus"
 
 import { Session } from "../session"
+import { SessionPrompt } from "../session/prompt"
 
 import { Permission } from "../permission"
 
@@ -90,30 +91,7 @@ export namespace ReminderManager {
     }
 
     try {
-      // Check if session is currently active (not busy/pending)
-      const { SessionPrompt } = await import("../session/prompt")
-      const isCurrentSession = !SessionPrompt.isBusy(reminder.sessionID)
-
-      if (!isCurrentSession) {
-        log.info("reminder cancelled: session not current", {
-          reminderID,
-          sessionID: reminder.sessionID,
-        })
-
-        // For non-current sessions, cancel the reminder but continue if recurring
-        if (reminder.type === "recurring") {
-          // Reschedule for next time
-          reminder.time.nextExecution = Date.now() + reminder.interval
-          await scheduleTimer(reminder)
-          log.info("recurring reminder rescheduled", { reminderID })
-        } else {
-          // Cancel one-time reminders
-          await cancel(reminderID)
-        }
-        return
-      }
-
-      // Post reminder message as agent message to originating session
+      // Always attempt to send the reminder - SessionPrompt.prompt() will handle queuing if busy
       await SessionPrompt.prompt({
         sessionID: reminder.sessionID,
         messageID: Identifier.ascending("message"),
@@ -142,13 +120,17 @@ export namespace ReminderManager {
       }
 
       Bus.publish(Reminder.Event.Executed, { info: reminder })
+      log.info("reminder executed successfully", {
+        reminderID,
+        sessionID: reminder.sessionID,
+      })
     } catch (error) {
       log.error("reminder execution failed", {
         reminderID,
         error: error instanceof Error ? error.message : String(error),
       })
 
-      // If permission was rejected and session is not current, cancel reminder
+      // If permission was rejected, handle appropriately
       if (error instanceof Permission.RejectedError) {
         if (reminder.type === "recurring") {
           // Reschedule recurring reminders even if permission denied
