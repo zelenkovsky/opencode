@@ -4,10 +4,8 @@ import { Identifier } from "../id/id"
 import { Storage } from "../storage/storage"
 import { Log } from "../util/log"
 import { Bus } from "../bus"
-
 import { Session } from "../session"
 import { SessionPrompt } from "../session/prompt"
-
 import { Permission } from "../permission"
 
 export namespace ReminderManager {
@@ -37,7 +35,6 @@ export namespace ReminderManager {
     // Schedule timer
     await scheduleTimer(reminder)
 
-    Bus.publish(Reminder.Event.Created, { info: reminder })
     log.info("scheduled reminder", {
       id: reminder.id,
       type: reminder.type,
@@ -64,7 +61,6 @@ export namespace ReminderManager {
     projectState.reminders.delete(reminderID)
     await Storage.remove(["reminder", Instance.project.id, reminderID])
 
-    Bus.publish(Reminder.Event.Cancelled, { info: reminder })
     log.info("cancelled reminder", { id: reminderID })
 
     return true
@@ -119,7 +115,6 @@ export namespace ReminderManager {
         log.info("one-time reminder executed and removed", { reminderID })
       }
 
-      Bus.publish(Reminder.Event.Executed, { info: reminder })
       log.info("reminder executed successfully", {
         reminderID,
         sessionID: reminder.sessionID,

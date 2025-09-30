@@ -1,5 +1,4 @@
 import z from "zod/v4"
-import { Bus } from "../bus"
 
 export namespace Reminder {
   export const Info = z
@@ -21,10 +20,4 @@ export namespace Reminder {
     .meta({ ref: "Reminder" })
 
   export type Info = z.infer<typeof Info>
-
-  export const Event = {
-    Created: Bus.event("reminder.created", z.object({ info: Info })),
-    Executed: Bus.event("reminder.executed", z.object({ info: Info })),
-    Cancelled: Bus.event("reminder.cancelled", z.object({ info: Info })),
-  }
 }
