@@ -1,86 +1,6 @@
 import { describe, it, expect } from "bun:test"
 
-// Test the truthy function behavior directly
-function truthy(key: string) {
-  const value = process.env[key]?.toLowerCase()
-  return value === "true" || value === "1"
-}
-
 describe("Flag functionality", () => {
-  describe("truthy function", () => {
-    it("should return true for 'true' value", () => {
-      const originalValue = process.env["TEST_FLAG"]
-      process.env["TEST_FLAG"] = "true"
-      expect(truthy("TEST_FLAG")).toBe(true)
-      if (originalValue !== undefined) {
-        process.env["TEST_FLAG"] = originalValue
-      } else {
-        delete process.env["TEST_FLAG"]
-      }
-    })
-
-    it("should return true for '1' value", () => {
-      const originalValue = process.env["TEST_FLAG"]
-      process.env["TEST_FLAG"] = "1"
-      expect(truthy("TEST_FLAG")).toBe(true)
-      if (originalValue !== undefined) {
-        process.env["TEST_FLAG"] = originalValue
-      } else {
-        delete process.env["TEST_FLAG"]
-      }
-    })
-
-    it("should return false for 'false' value", () => {
-      const originalValue = process.env["TEST_FLAG"]
-      process.env["TEST_FLAG"] = "false"
-      expect(truthy("TEST_FLAG")).toBe(false)
-      if (originalValue !== undefined) {
-        process.env["TEST_FLAG"] = originalValue
-      } else {
-        delete process.env["TEST_FLAG"]
-      }
-    })
-
-    it("should return false for undefined value", () => {
-      expect(truthy("NONEXISTENT_FLAG")).toBe(false)
-    })
-
-    it("should be case insensitive", () => {
-      const originalValue = process.env["TEST_FLAG"]
-
-      process.env["TEST_FLAG"] = "TRUE"
-      expect(truthy("TEST_FLAG")).toBe(true)
-
-      process.env["TEST_FLAG"] = "True"
-      expect(truthy("TEST_FLAG")).toBe(true)
-
-      if (originalValue !== undefined) {
-        process.env["TEST_FLAG"] = originalValue
-      } else {
-        delete process.env["TEST_FLAG"]
-      }
-    })
-
-    it("should return false for other string values", () => {
-      const originalValue = process.env["TEST_FLAG"]
-
-      process.env["TEST_FLAG"] = "yes"
-      expect(truthy("TEST_FLAG")).toBe(false)
-
-      process.env["TEST_FLAG"] = "on"
-      expect(truthy("TEST_FLAG")).toBe(false)
-
-      process.env["TEST_FLAG"] = "enabled"
-      expect(truthy("TEST_FLAG")).toBe(false)
-
-      if (originalValue !== undefined) {
-        process.env["TEST_FLAG"] = originalValue
-      } else {
-        delete process.env["TEST_FLAG"]
-      }
-    })
-  })
-
   describe("flag exports", () => {
     it("should export all expected flags", async () => {
       const { Flag } = await import("../../src/flag/flag")
@@ -98,6 +18,62 @@ describe("Flag functionality", () => {
       expect(typeof Flag.OPENCODE_DISABLE_AUTOCOMPACT).toBe("boolean")
       expect(typeof Flag.OPENCODE_DISABLE_REMINDERS).toBe("boolean")
       expect(typeof Flag.OPENCODE_EXPERIMENTAL_WATCHER).toBe("boolean")
+    })
+  })
+
+  describe("OPENCODE_DISABLE_REMINDERS behavior", () => {
+    it("should disable reminder tools when OPENCODE_DISABLE_REMINDERS is true", async () => {
+      const { ToolRegistry } = await import("../../src/tool/registry")
+      const { Config } = await import("../../src/config/config")
+      const { Flag } = await import("../../src/flag/flag")
+
+      // Mock Config.get to return default config with reminders.enabled = true
+      const originalGet = Config.get
+      Config.get = async () =>
+        ({ reminders: { enabled: true, max_reminders_per_project: 50, min_interval_seconds: 30 } }) as any
+
+      // Mock Flag.OPENCODE_DISABLE_REMINDERS to true
+      const originalDisableReminders = Flag.OPENCODE_DISABLE_REMINDERS
+      Object.defineProperty(Flag, "OPENCODE_DISABLE_REMINDERS", { value: true })
+
+      const agent = { permission: { edit: "allow", bash: { "*": "allow" }, webfetch: "allow" } }
+
+      const enabled = await ToolRegistry.enabled("testProvider", "testModel", agent as any)
+
+      expect(enabled["reminderadd"]).toBe(false)
+      expect(enabled["reminderlist"]).toBe(false)
+      expect(enabled["reminderremove"]).toBe(false)
+
+      // Restore
+      Object.defineProperty(Flag, "OPENCODE_DISABLE_REMINDERS", { value: originalDisableReminders })
+      Config.get = originalGet
+    })
+
+    it("should enable reminder tools when OPENCODE_DISABLE_REMINDERS is false and config enabled", async () => {
+      const { ToolRegistry } = await import("../../src/tool/registry")
+      const { Config } = await import("../../src/config/config")
+      const { Flag } = await import("../../src/flag/flag")
+
+      // Mock Config.get to return default config with reminders.enabled = true
+      const originalGet2 = Config.get
+      Config.get = async () =>
+        ({ reminders: { enabled: true, max_reminders_per_project: 50, min_interval_seconds: 30 } }) as any
+
+      // Mock Flag.OPENCODE_DISABLE_REMINDERS to false
+      const originalDisableReminders2 = Flag.OPENCODE_DISABLE_REMINDERS
+      Object.defineProperty(Flag, "OPENCODE_DISABLE_REMINDERS", { value: false })
+
+      const agent = { permission: { edit: "allow", bash: { "*": "allow" }, webfetch: "allow" } }
+
+      const enabled = await ToolRegistry.enabled("testProvider", "testModel", agent as any)
+
+      expect(enabled["reminderadd"]).toBeUndefined()
+      expect(enabled["reminderlist"]).toBeUndefined()
+      expect(enabled["reminderremove"]).toBeUndefined()
+
+      // Restore
+      Object.defineProperty(Flag, "OPENCODE_DISABLE_REMINDERS", { value: originalDisableReminders2 })
+      Config.get = originalGet2
     })
   })
 })
