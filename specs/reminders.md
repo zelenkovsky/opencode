@@ -199,7 +199,7 @@ Reminders execute in their originating session context, preserving:
 
 ### Message attribution
 
-Reminder messages appear as **agent messages** in the originating session (posted on behalf of the agent who set the timer), not system messages.
+Reminder messages appear as **user messages** in the originating session (posted on behalf of the user who set the timer), not the agent.
 
 ### Interactive permissions
 
@@ -210,15 +210,6 @@ When reminders need user permissions (e.g., bash tool access):
 - **Permission handling**: Permission requests follow normal session flow - shown to user when the session processes the queued reminder message
 - **No special handling**: Reminders use standard `SessionPrompt.prompt()` which handles all queuing, busy states, and permission flows automatically
 - **User feedback**: Users see reminder execution and any permission requests in normal conversation flow
-
-### Background notifications
-
-When reminders trigger in inactive sessions:
-
-- Toast notification appears: "Reminder triggered in [Session Name]"
-- Session displays red dot (●) indicator in session list
-- Red dot changes to black (●) when session becomes active
-- Notification state clears when session is opened
 
 ---
 
@@ -276,7 +267,7 @@ When `config.reminders.enabled` is `false` or `OPENCODE_DISABLE_REMINDERS` envir
 
 ```
 User: "Remind me to check logs in 5 minutes"
-Agent: "I don't have the ability to set reminders in this configuration. You could set a manual timer or ask me to help with the logs directly."
+Agent: "I don't have the ability to set reminders. You could set a manual timer or ask me to help with the logs directly."
 ```
 
 #### Technical Implementation
@@ -287,7 +278,7 @@ Agent: "I don't have the ability to set reminders in this configuration. You cou
 
 ### Storage and Restart Behavior
 
-**Critical Design Decision**: When reminders are disabled, **storage is preserved but timers are not restored**.
+**Important Design Decision**: When reminders are disabled, **storage is preserved but timers are not restored**.
 
 #### Scenario 1: Disabling reminders
 

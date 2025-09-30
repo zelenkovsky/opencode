@@ -467,11 +467,6 @@ func (a Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					toast.WithTitle(msg.Properties.Ide+" extension installed"),
 				)
 		*/
-	case opencode.EventListResponseEventReminderExecuted:
-		return a, toast.NewInfoToast(
-			msg.Properties.Info.UserDescription,
-			toast.WithTitle("Reminder"),
-		)
 	case opencode.EventListResponseEventSessionDeleted:
 		if a.app.Session != nil && msg.Properties.Info.ID == a.app.Session.ID {
 			a.app.Session = &opencode.Session{}
