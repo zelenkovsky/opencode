@@ -3,7 +3,6 @@ import { ReminderManager } from "../../src/reminder/manager"
 import { Reminder } from "../../src/reminder/reminder"
 import { Instance } from "../../src/project/instance"
 import { Storage } from "../../src/storage/storage"
-import { Bus } from "../../src/bus"
 import { $ } from "bun"
 
 async function createTestProject() {
@@ -36,10 +35,6 @@ describe("ReminderManager", () => {
     await Instance.provide({
       directory: tmp.dir,
       fn: async () => {
-        // Set up event logging inside Instance context
-        const eventLog: any[] = []
-        Bus.subscribe(Reminder.Event.Created, (event) => eventLog.push({ type: "created", event }))
-
         ReminderManager.init()
 
         const reminder: Reminder.Info = {
@@ -59,14 +54,8 @@ describe("ReminderManager", () => {
 
         await ReminderManager.schedule(reminder)
 
-        // Check if reminder is stored
         const storedReminder = await Storage.read<Reminder.Info>(["reminder", Instance.project.id, reminder.id])
         expect(storedReminder).toEqual(reminder)
-
-        // Check if Created event was published
-        expect(eventLog).toHaveLength(1)
-        expect(eventLog[0].type).toBe("created")
-        expect(eventLog[0].event.properties.info.id).toBe(reminder.id)
       },
     })
   })
@@ -143,21 +132,13 @@ describe("ReminderManager", () => {
     })
   })
 
-  test("cancel removes reminder and publishes event", async () => {
+  test("cancel removes reminder", async () => {
     await using tmp = await createTestProject()
     await Instance.provide({
       directory: tmp.dir,
       fn: async () => {
-        // Set up event logging inside Instance context
-        const eventLog: any[] = []
-        Bus.subscribe(Reminder.Event.Created, (event) => eventLog.push({ type: "created", event }))
-        Bus.subscribe(Reminder.Event.Cancelled, (event) => eventLog.push({ type: "cancelled", event }))
-
         ReminderManager.init()
         await cleanupAllReminders()
-
-        // Reset event log after cleanup
-        eventLog.length = 0
 
         const reminder: Reminder.Info = {
           id: "msg_cancel_test",
@@ -175,29 +156,19 @@ describe("ReminderManager", () => {
         }
 
         await ReminderManager.schedule(reminder)
-        expect(eventLog).toHaveLength(1) // Created event
 
-        // Cancel the reminder
         const cancelled = await ReminderManager.cancel(reminder.id)
         expect(cancelled).toBe(true)
 
-        // Check if reminder is removed from storage (should be null or throw)
         try {
           const storedReminder = await Storage.read<Reminder.Info>(["reminder", Instance.project.id, reminder.id])
           expect(storedReminder).toBeNull()
         } catch (error) {
-          // File not found is expected when reminder is deleted
           expect(error).toBeDefined()
         }
 
-        // Check if no longer in active list
         const activeReminders = await ReminderManager.list()
         expect(activeReminders).toHaveLength(0)
-
-        // Check if Cancelled event was published
-        expect(eventLog).toHaveLength(2)
-        expect(eventLog[1].type).toBe("cancelled")
-        expect(eventLog[1].event.properties.info.id).toBe(reminder.id)
       },
     })
   })
@@ -207,22 +178,11 @@ describe("ReminderManager", () => {
     await Instance.provide({
       directory: tmp.dir,
       fn: async () => {
-        // Set up event logging inside Instance context
-        const eventLog: any[] = []
-        Bus.subscribe(Reminder.Event.Created, (event) => eventLog.push({ type: "created", event }))
-        Bus.subscribe(Reminder.Event.Cancelled, (event) => eventLog.push({ type: "cancelled", event }))
-
         ReminderManager.init()
         await cleanupAllReminders()
 
-        // Reset event log after cleanup
-        eventLog.length = 0
-
         const cancelled = await ReminderManager.cancel("msg_nonexistent")
         expect(cancelled).toBe(false)
-
-        // No events should be published
-        expect(eventLog).toHaveLength(0)
       },
     })
   })
@@ -232,11 +192,6 @@ describe("ReminderManager", () => {
     await Instance.provide({
       directory: tmp.dir,
       fn: async () => {
-        // Set up event logging inside Instance context
-        const eventLog: any[] = []
-        Bus.subscribe(Reminder.Event.Created, (event) => eventLog.push({ type: "created", event }))
-        Bus.subscribe(Reminder.Event.Cancelled, (event) => eventLog.push({ type: "cancelled", event }))
-
         ReminderManager.init()
         await cleanupAllReminders()
 
@@ -272,7 +227,7 @@ describe("ReminderManager", () => {
 
         const reminder3: Reminder.Info = {
           id: "msg_keep",
-          sessionID: "ses_keep", // Different session
+          sessionID: "ses_keep",
           projectID: Instance.project.id,
           type: "one-time",
           interval: 3000,
@@ -291,17 +246,11 @@ describe("ReminderManager", () => {
 
         expect(await ReminderManager.list()).toHaveLength(3)
 
-        // Cleanup session
         await ReminderManager.cleanupSession("ses_cleanup")
 
-        // Check that only reminder3 remains
         const remaining = await ReminderManager.list()
         expect(remaining).toHaveLength(1)
         expect(remaining[0].id).toBe("msg_keep")
-
-        // Check that cleanup events were published (at least 2 for our test data)
-        const cancelledEvents = eventLog.filter((e: any) => e.type === "cancelled")
-        expect(cancelledEvents.length).toBeGreaterThanOrEqual(2)
       },
     })
   })

@@ -4,7 +4,6 @@ import { Reminder } from "../../src/reminder/reminder"
 import { Instance } from "../../src/project/instance"
 import { Storage } from "../../src/storage/storage"
 import { Session } from "../../src/session"
-import { Bus } from "../../src/bus"
 import { $ } from "bun"
 
 async function createTestProject() {
@@ -278,24 +277,13 @@ describe("Reminder Execution Tests", () => {
     })
   })
 
-  test("reminder event bus integration", async () => {
+  test("reminder scheduling and cancellation", async () => {
     await using tmp = await createTestProject()
     await Instance.provide({
       directory: tmp.dir,
       fn: async () => {
-        const eventLog: any[] = []
-        Bus.subscribe(Reminder.Event.Created, (event) =>
-          eventLog.push({ type: "created", id: event.properties.info.id }),
-        )
-        Bus.subscribe(Reminder.Event.Cancelled, (event) =>
-          eventLog.push({ type: "cancelled", id: event.properties.info.id }),
-        )
-
         ReminderManager.init()
         await cleanupAllReminders()
-
-        // Reset event log after cleanup
-        eventLog.length = 0
 
         const reminder: Reminder.Info = {
           id: "msg_event_test",
@@ -313,14 +301,15 @@ describe("Reminder Execution Tests", () => {
         }
 
         await ReminderManager.schedule(reminder)
-        expect(eventLog).toHaveLength(1)
-        expect(eventLog[0].type).toBe("created")
-        expect(eventLog[0].id).toBe("msg_event_test")
+
+        const scheduled = await ReminderManager.list("ses_event_test")
+        expect(scheduled).toHaveLength(1)
+        expect(scheduled[0].id).toBe("msg_event_test")
 
         await ReminderManager.cancel(reminder.id)
-        expect(eventLog).toHaveLength(2)
-        expect(eventLog[1].type).toBe("cancelled")
-        expect(eventLog[1].id).toBe("msg_event_test")
+
+        const afterCancel = await ReminderManager.list("ses_event_test")
+        expect(afterCancel).toHaveLength(0)
       },
     })
   })

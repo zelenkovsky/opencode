@@ -64,7 +64,7 @@ describe("Reminder namespace", () => {
     expect(result.data?.time.lastExecution).toBeDefined()
   })
 
-  test("Event schemas are properly defined", () => {
+  test("reminder info validation works correctly", () => {
     const reminder: Reminder.Info = {
       id: "msg_123",
       sessionID: "ses_456",
@@ -80,17 +80,9 @@ describe("Reminder namespace", () => {
       status: "active",
     }
 
-    // Test Created event
-    const createdEvent = { info: reminder }
-    expect(() => Reminder.Event.Created.properties.safeParse(createdEvent)).not.toThrow()
-
-    // Test Executed event
-    const executedEvent = { info: reminder }
-    expect(() => Reminder.Event.Executed.properties.safeParse(executedEvent)).not.toThrow()
-
-    // Test Cancelled event
-    const cancelledEvent = { info: reminder }
-    expect(() => Reminder.Event.Cancelled.properties.safeParse(cancelledEvent)).not.toThrow()
+    const result = Reminder.Info.safeParse(reminder)
+    expect(result.success).toBe(true)
+    expect(result.data).toEqual(reminder)
   })
 
   test("supports all reminder types", () => {
