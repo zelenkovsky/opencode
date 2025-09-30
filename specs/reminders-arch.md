@@ -163,7 +163,7 @@ async function executeReminder(reminderID: string) {
     await cancel(reminder.id)
   }
 
-  // Publish notification event (UI-only)
+  // Publish event for logging/monitoring
   Bus.publish(Reminder.Event.Executed, {
     info: reminder,
   })

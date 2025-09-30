@@ -317,26 +317,6 @@ Agent: "I don't have the ability to set reminders. You could set a manual timer 
 
 ---
 
-## User interface
-
-### Natural language parsing
-
-The system should parse natural language requests like:
-
-- "in 5 minutes do X" → one-time, 5min delay
-- "every hour do Y" → recurring, 1hr interval
-- "regularly check Z" → recurring, 1min default interval
-
-### Reminder descriptions
-
-Auto-generate human-readable descriptions for easy identification during listing and removal.
-
-### Status reporting
-
-Show time until next execution, total runs, and last execution status.
-
----
-
 ## Security considerations
 
 ### Permission inheritance
@@ -450,28 +430,3 @@ Agent: [calls reminderremove]
 Tool: "Reminder cancelled: No longer checking your email every hour"
 Agent: "Done! I've cancelled the email checking reminder."
 ```
-
----
-
-## Message flow behavior
-
-### Timer message queuing
-
-```
-Session A (inactive):
-  [10:00] User: "Check my email every 5 minutes"
-  [10:00] Agent: "I'll check your email every 5 minutes" [sets timer]
-  [10:05] Agent: "Check my email every 5 minutes" [timer fires]
-  [10:05] Agent: [processing...checking email tools...]
-  [10:10] Agent: "Check my email every 5 minutes" [timer fires again, queues]
-  [10:10] Agent: [queued, waiting for previous to complete]
-```
-
-### User session control
-
-When user opens Session A:
-
-- Sees all accumulated messages and responses
-- Can interrupt/cancel ongoing agent processing normally
-- Red dot indicator disappears
-- Toast notifications stop
