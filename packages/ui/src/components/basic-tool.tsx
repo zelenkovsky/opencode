@@ -265,6 +265,7 @@ export function GenericTool(props: {
   status?: string
   hideDetails?: boolean
   input?: Record<string, unknown>
+  title?: string
 }) {
   const i18n = useI18n()
 
@@ -273,7 +274,7 @@ export function GenericTool(props: {
       icon="mcp"
       status={props.status}
       trigger={{
-        title: i18n.t("ui.basicTool.called", { tool: props.tool }),
+        title: props.title || i18n.t("ui.basicTool.called", { tool: props.tool }),
         subtitle: label(props.input),
         args: args(props.input),
       }}
